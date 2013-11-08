@@ -1,0 +1,36 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=4763
+
+The "cppnav" is a source code navigation plugin for c++ and c files. It uses omnicppcomplete  plugin and ctag tool.
+
+FEATURES:
+ - Accurate navigation
+ - Jumping to member function and member variable of class/struct
+ - Jumping to files in #include directive
+ - Prototype preview of functions, macros and variables with single key press
+ - Function prototype preview while typing the functionName(
+ - Tab based navigation
+      If the identifier is declared in a file in other tab then it jumps
+      to the tab instead of opening it in the current window.
+                                                                                  
+   let g:cppnav_tab = 'never'
+  	Disable tab navigation feature
+
+   let g:cppnav_tab = 'always'
+  	Always use tab navigation. Open a new tab if the file is not already opened
+
+   let g:cppnav_tab = 'only'
+  	Use tab navigation only if the file is already open in another tab or the  current file is not saved.
+                                                                                  
+ USAGE:
+  create the 'tags' file using ctag with following options
+  	--fields=+iaS --extra=+fq
+                                                                                  
+  ctrl-]  = Jump to declaration
+  ctrl-t  = Jump back from declaration
+  <space> = Quick prototype preview (editor bottom)
+  _       = Preview the declaration file (preview window)
+  -       = Jump to the declaration file (preview window)
+
+
+Check out the Projx plugin for automatic tag creation and project file management
+   http://www.vim.org/scripts/script.php?script_id=4776
