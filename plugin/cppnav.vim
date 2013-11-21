@@ -1,9 +1,8 @@
 "
 " File:				cppnav.vim
-"
 " Author:			Sureshkumar Manimuthu (mail2msuresh AT yahoo DOT com)
-" Version:			1.0
-" Last Modified:	8-Nav-2013
+" Version:			1.1
+" Last Modified:	21-Nav-2013
 "
 " Copyright: Copyright (C) 2013 Sureshkumar Manimuthu
 "            Permission is hereby granted to use and distribute this code,
@@ -11,7 +10,7 @@
 "            notice is copied with it. Like anything else that's free,
 "            cppnav.vim is provided *as is* and comes with no warranty of any
 "            kind, either expressed or implied. In no event will the copyright
-"            holder be liable for any damamges resulting from the use of this
+"            holder be liable for any damages resulting from the use of this
 "            software.
 "
 " The "cppnav" is a source code navigation plugin for c++ and c files. It uses 
@@ -21,7 +20,18 @@
 "  - Accurate navigation
 "  - Jumping to member function and member variable of class/struct
 "  - Jumping to files in #include directive
-"  - Prototype preview of function, macros and variables with single key press
+"  - Prototype preview of functions, macros and variables with single key press
+"  - Tab based navigation
+"	    If the identifier is declared in a file in other tab then it jumps
+"	    to the tab instead of opening it in the current window.
+"
+"	 g:cppnav_tab == 'never'
+"		Disable tab navigation feature
+"	 g:cppnav_tab == 'always'
+"		Always use tab navigation. Open a new tab if the file is not already opened
+"	 g:cppnav_tab == 'only'
+"		Use tab navigation only if the file is already open in another tab or the 
+"		current file is not saved.
 "
 "  USAGE:
 "   create the 'tags' file using ctag with following options
@@ -43,10 +53,14 @@
 "-------------------------------------------------------------------------------
 
 " Check if the script is already loaded
-if exists('g:loaded_cppnav')
+if exists('g:cppnav_loaded') || &cp
     finish
 endif
-let g:loaded_cppnav = 1
+let g:cppnav_loaded = 1
+
+if !exists('g:cppnav_tab')
+	let g:cppnav_tab = 'only'
+endif
 
 " Stack for jump locations, so that we can come back
 let s:tag_stack = []
@@ -194,11 +208,71 @@ endfunction
 function JumpBackFromTag()
 	if s:tag_stack != []
 		let pos = remove(s:tag_stack, -1)
-
-		if bufnr(pos[0]) != bufnr("%")
-			exe "silent " . "edit " . pos[0]
-		endif
+		call s:GotoFileTab(pos[0], &modified)
 		call winrestview(pos[1])
+	endif
+endfunction
+
+function s:GotoFileTab(fname, newtab)
+	let buf_number = bufnr(a:fname)
+
+	" We are already in the same buffer
+	if buf_number == bufnr("%")
+		return
+	endif
+
+	" tab navigation is disabled
+	if g:cppnav_tab == 'never'
+		exe "silent " . "edit " . a:fname
+		return
+	endif
+
+	let index = -1
+	let empty_buf = -1
+	let empty_tab = -1
+
+	if buf_number != -1
+		for i in range(tabpagenr("$"))
+			let tab_file_list = tabpagebuflist(i + 1)
+			let index = match(tab_file_list, "^" . buf_number . "$")
+			if index != -1
+				break
+			endif
+			" also remember the fist empty buffer
+			if empty_buf == -1
+				for buf_nr in tab_file_list
+					if bufname(buf_nr) == "" && 
+								\ getbufvar(buf_nr, '&modified') == 0 &&  
+								\ getbufvar(buf_nr, '&buftype') == ""
+						let empty_buf = buf_nr
+						let empty_tab = i + 1
+					endif
+				endfor
+			endif
+		endfor
+	endif
+
+	if index != -1
+		let tabnum = i+1
+		if tabnum != tabpagenr()
+			exe "tabn " . tabnum
+		endif
+		exe bufwinnr(buf_number) . "wincmd w"
+	else
+		if a:newtab == 1 || g:cppnav_tab == 'always'
+			" if tab not found create a new tab
+			if empty_buf == -1
+				exe "tabe " . a:fname
+			else
+				" if there is an empty buffer use that instead
+				exe "tabn " . empty_tab
+				exe bufwinnr(empty_buf) . "wincmd w"
+				exe "edit " . a:fname
+			endif
+		else
+			" newtab == 0 so edit it in the same window
+			exe "silent " . "edit " . a:fname
+		endif
 	endif
 endfunction
 
@@ -229,9 +303,7 @@ function JumpToTag(tcount, prev, jump)
 			wincmd P
 		else
 			call add(s:tag_stack, [expand("%"), winsaveview()])
-			if bufnr(taginfo.filename) != bufnr("%")
-				exe "silent " . "edit " . taginfo.filename
-			endif
+			call s:GotoFileTab(taginfo.filename, &modified)
 		endif
 
 		let cmd = escape(taginfo.cmd, '*.+?[]')
