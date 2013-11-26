@@ -1,17 +1,8 @@
 "
 " File:				cppnav.vim
 " Author:			Sureshkumar Manimuthu (mail2msuresh AT yahoo DOT com)
-" Version:			1.1
-" Last Modified:	21-Nav-2013
-"
-" Copyright: Copyright (C) 2013 Sureshkumar Manimuthu
-"            Permission is hereby granted to use and distribute this code,
-"            with or without modifications, provided that this copyright
-"            notice is copied with it. Like anything else that's free,
-"            cppnav.vim is provided *as is* and comes with no warranty of any
-"            kind, either expressed or implied. In no event will the copyright
-"            holder be liable for any damages resulting from the use of this
-"            software.
+" Version:			1.2
+" Last Modified:	25-Nav-2013
 "
 " The "cppnav" is a source code navigation plugin for c++ and c files. It uses 
 " omnicppcomplete  plugin and ctag tool.
@@ -21,6 +12,7 @@
 "  - Jumping to member function and member variable of class/struct
 "  - Jumping to files in #include directive
 "  - Prototype preview of functions, macros and variables with single key press
+"  - Function prototype preview while typing the function name(
 "  - Tab based navigation
 "	    If the identifier is declared in a file in other tab then it jumps
 "	    to the tab instead of opening it in the current window.
@@ -276,6 +268,11 @@ function s:GotoFileTab(fname, newtab)
 	endif
 endfunction
 
+function s:ClosePreview()
+	nunmap <ESC>
+	pclose
+endfunction
+
 " jump to the declaration of the identifier under the cursor
 function JumpToTag(tcount, prev, jump)
 	" don't do that in preview window
@@ -299,8 +296,17 @@ function JumpToTag(tcount, prev, jump)
 	else
 	try
 		if a:prev == 1
-			exe "silent " . "pedit " . taginfo.filename
+			" supress the error display while opening the currently 
+			" modified file in preview window
+			try
+				exe "silent " . "pedit " . taginfo.filename
+			catch
+			endtry
+
+			let edit_win = winnr()
 			wincmd P
+			" escape will close the preview winodw
+			nnoremap <silent> <ESC> :call <SID>ClosePreview()<CR>
 		else
 			call add(s:tag_stack, [expand("%"), winsaveview()])
 			call s:GotoFileTab(taginfo.filename, &modified)
@@ -321,7 +327,7 @@ function JumpToTag(tcount, prev, jump)
 				call HlExpression(ident)
 				redraw
 			endif
-			wincmd p
+			exe edit_win . "wincmd w"
 		endif
 		return 1
 	catch
@@ -329,6 +335,23 @@ function JumpToTag(tcount, prev, jump)
 		return 0
 	endtry
 	endif
+endfunction
+
+function! s:FunctionOpen()
+	let old_col = col('.')
+	let cline = getline('.')
+	let cline = strpart(cline, 0, old_col - 2)
+	let column = match(cline, '\<[a-zA-Z_][a-zA-Z0-9_]*$')  
+
+	if column >= 0
+		call setpos('.', [0, line('.'), column, 0])
+		let taginfo = s:GetCorrectTag(0)
+		if taginfo != {}
+			echo strpart(taginfo.cmd, 2, len(taginfo.cmd) - 4)
+		endif
+	endif
+
+	return '('
 endfunction
 
 " show prototype of the identifier under the cursor
@@ -361,5 +384,7 @@ function! s:SetupMapping()
 	nnoremap <buffer> <silent> <C-]>	:<C-U>call JumpToTag(v:count, 0, 0)<CR>
 	nnoremap <buffer> <silent> ]<C-]>	:<C-U>call JumpToTag(-1, 0, 0)<CR>
 	nnoremap <buffer> <silent> <C-t>	:<C-U>call JumpBackFromTag()<CR>
+	inoremap <buffer> <silent> (		<C-O>:call ShowPrototype()<CR>(
+
 	" autocmd BufWrite <buffer> call CodeCleanup()
 endfunction
