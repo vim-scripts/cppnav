@@ -1,8 +1,8 @@
 "
 " File:				cppnav.vim
 " Author:			Sureshkumar Manimuthu (mail2msuresh AT yahoo DOT com)
-" Version:			1.2
-" Last Modified:	25-Nav-2013
+" Version:			1.3
+" Last Modified:	30-Nav-2013
 "
 " The "cppnav" is a source code navigation plugin for c++ and c files. It uses 
 " omnicppcomplete  plugin and ctag tool.
@@ -198,10 +198,10 @@ endfunction
 " jump back to the original location
 "
 function JumpBackFromTag()
-	if s:tag_stack != []
+	if len(s:tag_stack) > 0
 		let pos = remove(s:tag_stack, -1)
-		call s:GotoFileTab(pos[0], &modified)
-		call winrestview(pos[1])
+		call s:GotoFileTab(pos[1], &modified)
+		call winrestview(pos[2])
 	endif
 endfunction
 
@@ -305,10 +305,11 @@ function JumpToTag(tcount, prev, jump)
 
 			let edit_win = winnr()
 			wincmd P
-			" escape will close the preview winodw
-			nnoremap <silent> <ESC> :call <SID>ClosePreview()<CR>
+			"nnoremap <silent> <ESC> :call <SID>ClosePreview()<CR>
 		else
-			call add(s:tag_stack, [expand("%"), winsaveview()])
+			if a:tcount <= 0
+				call add(s:tag_stack, [ident, expand("%"), winsaveview()])
+			endif
 			call s:GotoFileTab(taginfo.filename, &modified)
 		endif
 
@@ -363,6 +364,18 @@ function ShowPrototype()
 	endif
 endfunction
 
+function NestedJumpToTag(prev, jump)
+	let ident = expand("<cword>")
+
+	if len(s:tag_stack) > 0 && s:tag_stack[-1][0] == ident
+		let s:tag_nest_count = s:tag_nest_count + 1
+	else
+		let s:tag_nest_count = 0
+	endif
+
+	call JumpToTag(s:tag_nest_count, a:prev, a:jump)
+endfunction
+
 " highlight the given expression
 function HlExpression(exp)
 	autocmd WinEnter <buffer> match none
@@ -379,9 +392,9 @@ endfun
 " map the keys for quick navigation
 function! s:SetupMapping()
 	nnoremap <buffer> <silent> <Space>	:<C-U>call ShowPrototype()<CR>
-	nnoremap <buffer> <silent> _		:<C-U>call JumpToTag(v:count, 1, 1)<CR>
-	nnoremap <buffer> <silent> -		:<C-U>call JumpToTag(v:count, 1, 0)<CR>
-	nnoremap <buffer> <silent> <C-]>	:<C-U>call JumpToTag(v:count, 0, 0)<CR>
+	nnoremap <buffer> <silent> _		:<C-U>call NestedJumpToTag(1, 1)<CR>
+	nnoremap <buffer> <silent> -		:<C-U>call NestedJumpToTag(1, 0)<CR>
+	nnoremap <buffer> <silent> <C-]>	:<C-U>call NestedJumpToTag(0, 0)<CR>
 	nnoremap <buffer> <silent> ]<C-]>	:<C-U>call JumpToTag(-1, 0, 0)<CR>
 	nnoremap <buffer> <silent> <C-t>	:<C-U>call JumpBackFromTag()<CR>
 	inoremap <buffer> <silent> (		<C-O>:call ShowPrototype()<CR>(

@@ -5,6 +5,7 @@ The "cppnav" is a source code navigation plugin for c++ and c files. It uses omn
 FEATURES:
  - Accurate navigation
  - Jumping to member function and member variable of class/struct
+ - Nested jumping : ctrl-] from a jumped location goes to the next instance. ctrl-t brings back to the original locaiton
  - Jumping to files in #include directive
  - Prototype preview of functions, macros and variables with single key press
  - Function prototype preview while typing the functionName(
